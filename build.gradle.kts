@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "net.codeverse"
-version = "1.0.0"
+version = "0.1.0"
 
 repositories {
     mavenCentral()
@@ -44,6 +44,13 @@ tasks.test {
 }
 
 tasks.shadowJar {
+    // Service files must reach mergeServiceFiles() rather than being dropped
+    // as duplicates on the way in. This matters most for
+    // META-INF/services/java.sql.Driver: losing it is what produces a
+    // "No suitable driver" failure at runtime despite the driver being
+    // present in the jar.
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+
     archiveBaseName.set("CodeverseAuth")
     archiveClassifier.set("")
     archiveVersion.set(project.version.toString())
