@@ -1,0 +1,73 @@
+{
+  "auth": {
+    "prompt-login": "<gray>Willkommen zurück. Nutze <white>/login <passwort></white>, um fortzufahren.</gray>",
+    "prompt-register": [
+      "<gray>Willkommen. Dieser Account ist noch nicht registriert.</gray>",
+      "<gray>Nutze <white>/register <passwort> <passwort></white>, um ihn zu erstellen.</gray>"
+    ],
+    "session-restored": "<green>Über eine gespeicherte Sitzung angemeldet.</green>",
+    "chat-blocked": "<red>Du musst dich anmelden, bevor du schreiben kannst.</red>",
+    "command-blocked": "<red>Du musst dich anmelden, bevor du diesen Befehl nutzen kannst.</red>",
+    "timeout": "<red>Du hast zu lange gebraucht, um dich anzumelden.</red>"
+  },
+  "login": {
+    "usage": "<gray>Verwendung: <white>/login <passwort></white></gray>",
+    "success": "<green>Angemeldet.</green>",
+    "already": "<gray>Du bist bereits angemeldet.</gray>",
+    "invalid": "<red>Falsches Passwort.</red>",
+    "not-registered": "<red>Dieser Account ist nicht registriert. Nutze zuerst <white>/register</white>.</red>",
+    "locked": "<red>Zu viele Fehlversuche. Versuche es in <white><duration></white> erneut.</red>",
+    "invalid-username": "<red>Dieser Name enthält Zeichen, die Minecraft nicht erlaubt.</red>",
+    "name-too-long": [
+      "<red>Dein Name ist zu lang für diesen Server.</red>",
+      "<gray>Namen ohne gekauften Minecraft Account erhalten das Präfix <white><prefix></white>,</gray>",
+      "<gray>daher sind höchstens <white><max></white> Zeichen möglich.</gray>"
+    ]
+  },
+  "register": {
+    "usage": "<gray>Verwendung: <white>/register <passwort> <passwort></white></gray>",
+    "success": "<green>Account erstellt und angemeldet.</green>",
+    "already": "<gray>Dieser Account ist bereits registriert. Nutze <white>/login</white>.</gray>"
+  },
+  "password": {
+    "usage": "<gray>Verwendung: <white>/changepassword <aktuell> <neu></white></gray>",
+    "too-short": "<red>Das Passwort muss mindestens <white><min></white> Zeichen lang sein.</red>",
+    "too-long": "<red>Das Passwort darf höchstens <white><max></white> Zeichen lang sein.</red>",
+    "mismatch": "<red>Die Passwörter stimmen nicht überein.</red>",
+    "changed": "<green>Passwort geändert.</green>",
+    "wrong-current": "<red>Das aktuelle Passwort ist falsch.</red>"
+  },
+  "totp": {
+    "usage": [
+      "<gray>Zwei Faktor Authentifizierung:</gray>",
+      "<gray>  <white>/2fa enable</white> Einrichtung starten</gray>",
+      "<gray>  <white>/2fa confirm <code></white> Einrichtung abschließen</gray>",
+      "<gray>  <white>/2fa disable <passwort></white> deaktivieren</gray>",
+      "<gray>  <white>/2fa <code></white> Code beim Anmelden eingeben</gray>"
+    ],
+    "prompt": "<gray>Gib deinen Zwei Faktor Code mit <white>/2fa <code></white> ein.</gray>",
+    "not-awaiting": "<gray>Es wird gerade kein Code von dir verlangt.</gray>",
+    "enrolment-started": [
+      "<gray>Scanne dies in deiner Authenticator App oder gib den Schlüssel manuell ein.</gray>",
+      "<white>Schlüssel: <secret></white>",
+      "<gray>Link: <white><uri></white></gray>",
+      "<gray>Bestätige danach mit <white>/2fa confirm <code></white>.</gray>"
+    ],
+    "enabled": "<green>Zwei Faktor Authentifizierung ist jetzt aktiv.</green>",
+    "disabled": "<green>Zwei Faktor Authentifizierung wurde deaktiviert.</green>",
+    "disabled-globally": "<gray>Zwei Faktor Authentifizierung ist auf diesem Netzwerk nicht aktiviert.</gray>",
+    "invalid-code": "<red>Dieser Code ist ungültig.</red>",
+    "no-pending-enrolment": "<gray>Starte zuerst mit <white>/2fa enable</white>.</gray>",
+    "must-be-authenticated": "<red>Melde dich an, bevor du Zwei Faktor Einstellungen änderst.</red>",
+    "required-not-enrolled": "<red>Für diesen Account muss Zwei Faktor Authentifizierung aktiv sein.</red>",
+    "recovery-codes": [
+      "<gray>Bewahre diese Wiederherstellungscodes sicher auf. Jeder funktioniert einmal.</gray>",
+      "<white><codes></white>"
+    ],
+    "recovery-codes-failed": "<red>Zwei Faktor ist aktiv, aber die Wiederherstellungscodes konnten nicht erstellt werden. Melde dich beim Team.</red>"
+  },
+  "error": {
+    "storage-unavailable": "<red>Der Anmeldedienst ist vorübergehend nicht verfügbar. Bitte versuche es gleich erneut.</red>",
+    "no-server-available": "<red>Aktuell ist kein Server verfügbar. Bitte versuche es gleich erneut.</red>"
+  }
+}

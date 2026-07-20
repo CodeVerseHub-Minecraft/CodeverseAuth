@@ -1,0 +1,73 @@
+{
+  "auth": {
+    "prompt-login": "<gray>Welcome back. Use <white>/login <password></white> to continue.</gray>",
+    "prompt-register": [
+      "<gray>Welcome. This account is not registered yet.</gray>",
+      "<gray>Use <white>/register <password> <password></white> to create it.</gray>"
+    ],
+    "session-restored": "<green>Signed in from a saved session.</green>",
+    "chat-blocked": "<red>You must sign in before you can chat.</red>",
+    "command-blocked": "<red>You must sign in before using that command.</red>",
+    "timeout": "<red>You took too long to sign in.</red>"
+  },
+  "login": {
+    "usage": "<gray>Usage: <white>/login <password></white></gray>",
+    "success": "<green>Signed in.</green>",
+    "already": "<gray>You are already signed in.</gray>",
+    "invalid": "<red>Incorrect password.</red>",
+    "not-registered": "<red>That account is not registered. Use <white>/register</white> first.</red>",
+    "locked": "<red>Too many failed attempts. Try again in <white><duration></white>.</red>",
+    "invalid-username": "<red>That username contains characters Minecraft does not allow.</red>",
+    "name-too-long": [
+      "<red>Your username is too long for this server.</red>",
+      "<gray>Names without a paid Minecraft account get a <white><prefix></white> prefix,</gray>",
+      "<gray>so they can be at most <white><max></white> characters.</gray>"
+    ]
+  },
+  "register": {
+    "usage": "<gray>Usage: <white>/register <password> <password></white></gray>",
+    "success": "<green>Account created and signed in.</green>",
+    "already": "<gray>That account is already registered. Use <white>/login</white>.</gray>"
+  },
+  "password": {
+    "usage": "<gray>Usage: <white>/changepassword <current> <new></white></gray>",
+    "too-short": "<red>Password must be at least <white><min></white> characters.</red>",
+    "too-long": "<red>Password must be at most <white><max></white> characters.</red>",
+    "mismatch": "<red>Those passwords do not match.</red>",
+    "changed": "<green>Password changed.</green>",
+    "wrong-current": "<red>Current password is incorrect.</red>"
+  },
+  "totp": {
+    "usage": [
+      "<gray>Two factor authentication:</gray>",
+      "<gray>  <white>/2fa enable</white> start setup</gray>",
+      "<gray>  <white>/2fa confirm <code></white> finish setup</gray>",
+      "<gray>  <white>/2fa disable <password></white> turn it off</gray>",
+      "<gray>  <white>/2fa <code></white> submit a code when signing in</gray>"
+    ],
+    "prompt": "<gray>Enter your two factor code with <white>/2fa <code></white>.</gray>",
+    "not-awaiting": "<gray>You are not being asked for a code right now.</gray>",
+    "enrolment-started": [
+      "<gray>Scan this in your authenticator app, or enter the key by hand.</gray>",
+      "<white>Key: <secret></white>",
+      "<gray>Link: <white><uri></white></gray>",
+      "<gray>Then confirm with <white>/2fa confirm <code></white>.</gray>"
+    ],
+    "enabled": "<green>Two factor authentication is now active.</green>",
+    "disabled": "<green>Two factor authentication has been turned off.</green>",
+    "disabled-globally": "<gray>Two factor authentication is not enabled on this network.</gray>",
+    "invalid-code": "<red>That code is not valid.</red>",
+    "no-pending-enrolment": "<gray>Start with <white>/2fa enable</white> first.</gray>",
+    "must-be-authenticated": "<red>Sign in before changing two factor settings.</red>",
+    "required-not-enrolled": "<red>This account must have two factor authentication enabled before signing in.</red>",
+    "recovery-codes": [
+      "<gray>Save these recovery codes somewhere safe. Each works once.</gray>",
+      "<white><codes></white>"
+    ],
+    "recovery-codes-failed": "<red>Two factor is active but recovery codes could not be generated. Contact staff.</red>"
+  },
+  "error": {
+    "storage-unavailable": "<red>The login service is temporarily unavailable. Please try again shortly.</red>",
+    "no-server-available": "<red>No server is available right now. Please try again shortly.</red>"
+  }
+}
