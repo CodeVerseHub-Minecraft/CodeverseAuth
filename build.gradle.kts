@@ -65,6 +65,19 @@ tasks.shadowJar {
 
     mergeServiceFiles()
 
+    // Build metadata that is meaningless once several jars are merged. Note
+    // that META-INF/LICENSE and META-INF/NOTICE are deliberately NOT excluded:
+    // several bundled libraries are Apache 2.0, which requires their
+    // attribution notices to travel with the distributed artifact. See
+    // THIRD-PARTY-NOTICES.md.
+    exclude("META-INF/versions/*/OSGI-INF/**")
+    exclude("META-INF/io.netty.versions.properties")
+    exclude("META-INF/*.SF")
+    exclude("META-INF/*.DSA")
+    exclude("META-INF/*.RSA")
+    exclude("module-info.class")
+    exclude("META-INF/versions/*/module-info.class")
+
     // Deliberately no minimize(). Caffeine selects its cache implementation
     // reflectively by generated class name (SSMSW and siblings), and Lettuce
     // and the MySQL driver also resolve classes reflectively, so minimization

@@ -1,183 +1,309 @@
-# CodeverseAuth
+<div align="center">
 
-Authentication and identity for Velocity networks that accept cracked, Bedrock
-and premium Java players at the same time.
-
-Built for **Velocity 4** and **Java 25**.
-
-Mixing offline-mode players with premium ones is where most cracked networks
-get compromised, because a client that skips Mojang authentication can claim
-any username it likes. CodeverseAuth closes that by proving premium names
-against Mojang and pushing everyone else into a separate namespace that Mojang
-cannot issue names in.
-
-## How it works
-
-Every connection is sorted into a trust tier.
-
-| Tier | Origin | Prefix | Password | Permissions |
-|---|---|---|---|---|
-| `PREMIUM` | verified against Mojang | none | no | full |
-| `BEDROCK` | verified by Microsoft via Floodgate | `.` | no | full |
-| `DISCORD_LINKED` | offline account with a linked Discord identity | `~` | yes | limited |
-| `CRACKED` | unverified | `~` | yes | none |
-
-Three properties hold this together, and each is useless without the others.
-
-**Premium names are proven, not claimed.** On `PreLoginEvent` the plugin looks
-up whether a username belongs to a paid account. If it does, the connection is
-forced into online mode and Mojang's session servers do the verifying.
-
-**Cracked names cannot collide with premium ones.** Everyone else is renamed to
-`~name`, and their UUID is derived from the prefixed name. Mojang cannot issue
-a username containing `~`, so the two namespaces never intersect. The plugin
-refuses to start if the prefix is set to something Mojang could issue.
-
-**Every failure fails closed.** A lookup that throws, times out, or comes back
-undetermined ends in online mode, never offline mode. If the database is
-unreachable the plugin registers no listeners at all and says so. A cracked
-player being unable to log in during an outage is the design working; the
-alternative is every username on the network silently becoming spoofable.
-
-## Requirements
-
-- Velocity 4.0.0 or newer
-- Java 25
-- MySQL or MariaDB
-- LuckPerms on the proxy. Without it, tier enforcement is inactive and the
-  plugin logs a warning at startup.
-- A limbo server for unauthenticated players
-- Redis is optional. If it is disabled or unreachable the cache degrades to
-  local only, because a cache outage should not become an auth outage.
-
-## Setup
-
-Drop the jar in `plugins/`, start once to generate the config, fill in your
-database details, restart.
-
-Your `velocity.toml` needs:
-
-```toml
-online-mode = true
-force-key-authentication = false
-player-info-forwarding-mode = "MODERN"
-try = ["limbo"]
+```
+ ██████╗ ███╗   ██╗██╗   ██╗██╗  ██╗
+██╔═══██╗████╗  ██║╚██╗ ██╔╝╚██╗██╔╝
+██║   ██║██╔██╗ ██║ ╚████╔╝  ╚███╔╝
+██║   ██║██║╚██╗██║  ╚██╔╝   ██╔██╗
+╚██████╔╝██║ ╚████║   ██║   ██╔╝ ██╗
+ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝
 ```
 
-`online-mode = true` is not a typo. The plugin downgrades individual
-connections to offline mode after positively identifying them as non-premium.
-Setting it to `false` globally removes the guarantee entirely.
+**Modular reverse proxy with a live WebSocket dashboard.**
 
-## Commands
+[![CI](https://github.com/Elchi-dev/onyx/actions/workflows/ci.yml/badge.svg)](https://github.com/Elchi-dev/onyx/actions/workflows/ci.yml)
+[![Go 1.24+](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go)](https://go.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Release](https://img.shields.io/github/v/release/Elchi-dev/onyx?include_prereleases)](https://github.com/Elchi-dev/onyx/releases)
 
-| Command | Purpose |
+</div>
+
+---
+
+## Install
+
+### Ubuntu / Debian / Pop!_OS / Linux Mint
+
+```bash
+# Add the Onyx apt repository (one-time setup)
+curl -fsSL https://elchi-dev.github.io/onyx/gpg.key \
+  | sudo gpg --dearmor -o /usr/share/keyrings/onyx.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/onyx.gpg] \
+  https://elchi-dev.github.io/onyx/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/onyx.list
+
+sudo apt update && sudo apt install onyx
+```
+
+Future updates: `sudo apt upgrade onyx`
+
+---
+
+### Arch Linux / Manjaro / EndeavourOS
+
+```bash
+# Using yay
+yay -S onyx
+
+# Using paru
+paru -S onyx
+
+# Manual AUR install
+git clone https://aur.archlinux.org/onyx.git
+cd onyx && makepkg -si
+```
+
+---
+
+### Fedora / RHEL / CentOS / AlmaLinux / Rocky Linux
+
+```bash
+# Add the Onyx rpm repository
+sudo curl -fsSL https://elchi-dev.github.io/onyx/onyx.repo \
+  -o /etc/yum.repos.d/onyx.repo
+
+sudo dnf install onyx
+```
+
+---
+
+### openSUSE
+
+```bash
+sudo zypper addrepo https://elchi-dev.github.io/onyx/onyx.repo onyx
+sudo zypper install onyx
+```
+
+---
+
+### macOS (Homebrew)
+
+```bash
+# Add the Onyx tap (one-time)
+brew tap Elchi-dev/onyx
+
+brew install onyx
+```
+
+Future updates: `brew upgrade onyx`
+
+---
+
+### Any Linux / macOS — curl installer
+
+```bash
+curl -fsSL https://elchi-dev.github.io/onyx/install.sh | bash
+```
+
+Detects your OS and architecture automatically. Works on any system with `curl`.
+
+---
+
+### Docker
+
+```bash
+docker run -d \
+  -p 80:80 -p 8080:8080 \
+  -v ~/.config/onyx:/data \
+  ghcr.io/elchi-dev/onyx:latest
+```
+
+---
+
+### Build from source
+
+Requires Go 1.24+.
+
+```bash
+git clone https://github.com/Elchi-dev/onyx.git
+cd onyx
+go mod tidy
+make build          # binary at ./build/onyx
+sudo make install   # copies to /usr/local/bin/onyx
+```
+
+---
+
+### Download binary directly
+
+Download the pre-built binary for your platform from the
+[Releases page](https://github.com/Elchi-dev/onyx/releases):
+
+| Platform | File |
 |---|---|
-| `/login <password>` | sign in |
-| `/register <password> <password>` | create an account |
-| `/changepassword <current> <new>` | change password |
-| `/2fa enable` | begin TOTP setup |
-| `/2fa confirm <code>` | activate TOTP and receive recovery codes |
-| `/2fa disable <password>` | turn TOTP off |
-| `/2fa <code>` | submit a code while signing in |
+| Linux x86_64 | `onyx-linux-amd64` |
+| Linux ARM64 | `onyx-linux-arm64` |
+| macOS x86_64 | `onyx-darwin-amd64` |
+| macOS Apple Silicon | `onyx-darwin-arm64` |
+| Windows x86_64 | `onyx-windows-amd64.exe` |
 
-Only these and `/help` work before authentication.
+```bash
+# Example for Linux amd64
+curl -fsSL https://github.com/Elchi-dev/onyx/releases/latest/download/onyx-linux-amd64 \
+  -o /usr/local/bin/onyx
+chmod +x /usr/local/bin/onyx
+```
+
+---
+
+## Quick start
+
+```bash
+# Interactive first-time setup (creates config, sets password, adds first route)
+onyx setup
+
+# Start proxy + live dashboard
+onyx start
+
+# Add a route
+onyx route add --host api.example.com --target http://localhost:3000
+
+# Open the dashboard in your browser
+open http://localhost:8080
+```
+
+---
+
+## Features
+
+| Feature | Status |
+|---|---|
+| 🔀 Host-based reverse proxy | ✅ v0.1.0 |
+| 📊 Live WebSocket dashboard | ✅ v0.1.0 |
+| 🔒 Dashboard auth (bcrypt + sessions) | ✅ v0.1.0 |
+| 🧙 Interactive setup wizard | ✅ v0.1.0 |
+| 🗄️ SQLite storage (zero dependencies) | ✅ v0.1.0 |
+| 📝 TOML configuration | ✅ v0.1.0 |
+| 🚦 Per-IP rate limiting (token bucket) | ✅ v0.1.0 |
+| ✂️ Weighted traffic splitting | ✅ v0.1.0 |
+| 🔌 Plugin API (composable middleware) | ✅ v0.1.0 |
+| 🔁 Graceful shutdown | ✅ v0.1.0 |
+| 🛣️ Route management from dashboard UI | ✅ v0.1.1 |
+| 📈 Server-side persistent stats | ✅ v0.1.1 |
+| 📊 Per-route breakdown & analytics | ✅ v0.1.1 |
+| 🔐 Login rate limiting (brute-force protection) | ✅ v0.1.1 |
+| 🔐 WebSocket origin validation | ✅ v0.1.1 |
+| 🔐 Session persistence (survives restart) | ✅ v0.1.1 |
+| 🔐 Request body size limit | ✅ v0.1.1 |
+| ⏱️ Backend connection + response timeouts | ✅ v0.1.1 |
+| ♻️ TCP connection pooling to backends | ✅ v0.1.1 |
+| ✅ `onyx validate` — config check | ✅ v0.1.1 |
+| 📦 apt / .deb packaging | ✅ v0.1.1 |
+| 📦 rpm packaging | ✅ v0.1.1 |
+| 📦 AUR (Arch) package | ✅ v0.1.1 |
+| 📱 Responsive mobile layout | ✅ v0.1.1 |
+| 🔄 Live route updates (no restart needed) | ✅ v0.1.2 |
+| ⬆️ Self-update via `onyx update` | ✅ v0.1.2 |
+| 🔒 Automatic HTTPS (Let's Encrypt) | ✅ v0.2.0 |
+| 🔒 Self-signed certs for local domains | ✅ v0.2.0 |
+| 🛣️ Path-based routing | ✅ v0.3.0 |
+| 📁 Static file serving + SPA mode | ✅ v0.3.0 |
+| 🔌 Explicit WebSocket proxying | ✅ v0.3.0 |
+| 🗜️ Gzip compression per route | ✅ v0.3.0 |
+| 📋 Custom response headers per route | ✅ v0.3.0 |
+| 🔁 www redirect (strip/add) | ✅ v0.3.0 |
+| 📥 nginx config importer (CLI + dashboard) | ✅ v0.3.0 |
+| ✏️ Route edit modal in dashboard | ✅ v0.3.0 |
+| 🐳 Docker support | ✅ v0.3.0 |
+| 🏥 Health checks + auto-failover | 📅 v0.3.2 |
+| 🔐 Basic auth per route | 📅 v0.3.3 |
+| 📊 Prometheus metrics | 📅 v0.4.0 |
+| ♻️ Config hot-reload | 📅 v0.4.0 |
+| 📦 Homebrew tap | 📅 v0.4.0 |
+
+---
+
+## CLI reference
+
+```
+onyx start [--config PATH] [--dev]       Start proxy + dashboard
+onyx setup                               Interactive first-time setup
+onyx validate [--config PATH]            Check config without starting
+onyx status [--url URL]                  Check if Onyx is running
+onyx update [--check] [--force]          Update Onyx to the latest release
+onyx route add --host H --target T       Add a proxy route
+onyx route list                          List all routes
+onyx route remove <host>                 Remove a route
+onyx import nginx <file|dir>             Import routes from nginx config
+```
+
+---
 
 ## Configuration
 
-Everything lives in `config.json`, written with defaults on first start and
-merged forward on upgrade. No setting requires a rebuild. A session signing
-secret is generated on first run.
+```toml
+[server]
+http_port = 80
+data_dir  = "~/.config/onyx"
 
-Raising the Argon2 cost parameters is safe at any time. Existing hashes keep
-verifying and are transparently upgraded on each account's next correct
-password.
+[dashboard]
+enabled = true
+port    = 8080
 
-## Messages and translations
+[[routes]]
+host    = "api.example.com"
+target  = "http://localhost:3000"
+enabled = true
 
-`lang/en.json` and `lang/de.json` ship with the plugin and are written to the
-data directory on first start. Every player-facing string resolves through the
-catalogue, so all of them can be reworded or translated without touching code.
-Files use MiniMessage. Nested objects flatten to dotted keys and arrays become
-multi-line messages.
-
-To add a language, drop `lang/fr.json` in the data directory. It is picked up
-at startup. Player locale is detected automatically when
-`language.usePlayerLocale` is enabled.
-
-Translation contributions are welcome.
-
-## Design notes
-
-**Internal UUIDs.** Each account gets an internal UUID that is the primary key
-in every table the plugin owns. The Minecraft-facing UUID is treated as an
-address, not an identity. This keeps Java, Bedrock and cracked accounts
-unifiable later without rewriting the in-game UUID, which would break Floodgate
-and, through it, anti-cheat exemptions for Bedrock players.
-
-**Cookie sessions.** Sessions are stored client-side using Velocity 4 cookies,
-signed with HMAC-SHA256. Bedrock and mobile players change networks constantly,
-and an IP-keyed session either logs them out every time or has to be loosened
-until it is meaningless. The signature is verified before any field is parsed,
-and the identity inside the token must match the one the proxy independently
-resolved for that connection.
-
-**Chat is not cancelled.** Denying `PlayerChatEvent` disconnects clients on
-1.19.1 and newer, which would turn a mistyped password into a kick.
-Unauthenticated players are confined to limbo instead, which relays chat to
-nobody.
-
-**Throttling counts both address and account.** Counting only the account lets
-one host spray many accounts; counting only the address lets a botnet grind a
-single one. Counters are persisted so a restart does not reset an attacker's
-budget.
-
-**TOTP is implemented against RFC 6238** on top of the JDK's HMAC, and the test
-suite checks all eighteen vectors from Appendix B across SHA1, SHA256 and
-SHA512. The common Java TOTP wrappers are unmaintained and pull in a QR image
-dependency this plugin does not need.
-
-**Tier enforcement does not trust config.** The LuckPerms sync strips groups
-from cracked accounts regardless of what `config.json` says, so a mistyped
-group name cannot hand out staff access.
-
-## Building
-
-```bash
-./gradlew build
+  [routes.rate_limit]
+  requests_per_second = 100
+  burst               = 50
 ```
 
-Output: `build/libs/CodeverseAuth-<version>.jar`
+Full reference: [docs/configuration.md](docs/configuration.md)
 
-Requires a JDK 25 toolchain.
+---
 
-Note for contributors: shadow's `minimize()` must stay disabled. Caffeine,
-Lettuce and the MySQL driver all resolve classes reflectively, and minimization
-strips classes that are needed at runtime but invisible to static analysis. The
-resulting failures only appear once the plugin is actually running.
+## Plugin API
 
-## Testing
-
-```bash
-./gradlew test
+```go
+type Plugin interface {
+    Name()    string
+    Version() string
+    Handler() func(http.Handler) http.Handler
+}
 ```
 
-See [VERIFICATION.md](VERIFICATION.md) for a record of what has been verified
-by execution and, just as importantly, what has not.
+See [`plugins/example/`](plugins/example/) and [docs/plugins.md](docs/plugins.md).
+
+---
+
+## Architecture
+
+```
+internal/app/         Dependency wiring — connects all packages
+internal/middleware/  Composable middleware: Recovery, BodyLimit, Logger, Headers, RateLimit
+internal/proxy/       Router (with connection pooling) + server + request events
+internal/dashboard/   WebSocket hub + HTTP server + login limiter + session cleanup
+internal/auth/        Password hashing + session tokens
+internal/database/    SQLite: settings, routes, sessions, route_stats
+internal/config/      TOML loader + validation
+internal/ratelimit/   Per-IP token bucket rate limiter
+internal/traffic/     Weighted traffic splitter
+internal/plugin/      Plugin registry + middleware chain
+internal/wizard/      Interactive CLI setup wizard
+plugins/example/      Reference plugin — copy to build your own
+docs/                 User documentation
+scripts/              install.sh, uninstall.sh, pkg/, dev/
+```
+
+### Middleware stack
+
+Every proxied request passes through (outermost first):
+
+```
+Recovery → BodyLimit → RequestLogger → SecureHeaders → RateLimit → Router → Backend
+```
+
+---
 
 ## Contributing
 
-Issues and pull requests are welcome. If you are changing anything in
-`PreLoginListener`, `GameProfileListener` or `AuthManager`, please explain in
-the pull request how your change preserves the fail-closed behaviour described
-above.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/plugins.md](docs/plugins.md).
+
+---
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
-
-## About
-
-Built and maintained by the **CodeVerseHub-Minecraft Subteam**.
-
-We work alongside the wider CodeVerseHub community but operate as a separate
-team; CodeVerseHub is not responsible for this project.
+MIT — [LICENSE](./LICENSE) · built by [Elchi-dev](https://github.com/Elchi-dev)
