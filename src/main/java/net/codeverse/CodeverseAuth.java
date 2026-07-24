@@ -7,8 +7,6 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
-import net.luckperms.api.LuckPerms;
-import net.luckperms.api.LuckPermsProvider;
 import net.codeverse.auth.AuthManager;
 import net.codeverse.auth.MojangPremiumResolver;
 import net.codeverse.auth.PremiumResolver;
@@ -22,16 +20,29 @@ import net.codeverse.identity.IdentityService;
 import net.codeverse.lang.LangManager;
 import net.codeverse.listener.AuthGateListener;
 import net.codeverse.listener.GameProfileListener;
+import net.codeverse.listener.PermissionSyncListener;
 import net.codeverse.listener.PreLoginListener;
 import net.codeverse.listener.SessionCookieListener;
+import net.codeverse.api.CodeverseApiProvider;
+import net.codeverse.apiimpl.AuthEventBus;
+import net.codeverse.apiimpl.AuthIdentityService;
+import net.codeverse.apiimpl.AuthLinkService;
+import net.codeverse.apiimpl.CodeverseApiImpl;
+import net.codeverse.command.LinkCommands;
+import net.codeverse.integration.LuckPermsHooks;
+import net.codeverse.integration.PermissionHooks;
+import net.codeverse.http.ApiAuthenticator;
+import net.codeverse.http.HttpApiServer;
 import net.codeverse.storage.AccountRepository;
 import net.codeverse.storage.Database;
+import net.codeverse.storage.LinkCodeRepository;
 import net.codeverse.storage.ThrottleRepository;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -47,13 +58,14 @@ import java.util.concurrent.TimeUnit;
 @Plugin(
         id = "codeverse-auth",
         name = "Codeverse Auth",
-        version = "0.1.0",
+        version = "0.2.0",
         description = "Identity, authentication and trust tiers for a cracked, Bedrock and Java network",
         authors = {"CodeVerseHub-Minecraft Subteam"}
 )
 public final class CodeverseAuth {
 
     private static final List<String> BUNDLED_LOCALES = List.of("en", "de");
+    private static final String LUCKPERMS_PLUGIN_ID = "luckperms";
 
     private final ProxyServer proxy;
     private final Logger logger;
@@ -65,6 +77,9 @@ public final class CodeverseAuth {
     private IdentityCache cache;
     private ExecutorService executor;
     private AuthCommands commands;
+    private LinkCommands linkCommands;
+    private HttpApiServer httpApi;
+    private CodeverseApiImpl api;
     private boolean started;
 
     @Inject
@@ -89,6 +104,7 @@ public final class CodeverseAuth {
 
             AccountRepository accounts = new AccountRepository(database);
             ThrottleRepository throttle = new ThrottleRepository(database);
+            LinkCodeRepository linkCodes = new LinkCodeRepository(database);
             IdentityService identities = new IdentityService(accounts, cache);
 
             PasswordHasher hasher = new PasswordHasher(
@@ -121,8 +137,29 @@ public final class CodeverseAuth {
 
             registerPermissionSync(identities);
 
+            AuthEventBus eventBus = new AuthEventBus(logger);
+            AuthIdentityService apiIdentities = new AuthIdentityService(accounts, cache, executor);
+            AuthLinkService apiLinks = new AuthLinkService(
+                    accounts, linkCodes, cache, eventBus, executor, config.http.linkCodeLength);
+
+            // Registered before commands and the HTTP interface so nothing
+            // that depends on the API can observe it missing, and before the
+            // proxy finishes initialising so plugins loading after this one
+            // find it already present.
+            api = new CodeverseApiImpl(apiIdentities, apiLinks, eventBus);
+            CodeverseApiProvider.register(api);
+
             commands = new AuthCommands(this, proxy, config, auth, gate, lang, executor, logger);
             commands.registerAll();
+
+            linkCommands = new LinkCommands(this, proxy, config, auth, apiLinks, lang, logger);
+            linkCommands.registerAll();
+
+            startHttpInterface(apiIdentities, apiLinks);
+
+            proxy.getScheduler().buildTask(this, () -> apiLinks.purgeExpiredCodes())
+                    .repeat(10, TimeUnit.MINUTES)
+                    .schedule();
 
             proxy.getScheduler().buildTask(this, () -> auth.purgeExpiredThrottles())
                     .repeat(15, TimeUnit.MINUTES)
@@ -141,9 +178,39 @@ public final class CodeverseAuth {
     }
 
     /**
-     * LuckPerms is optional at load time so the plugin still starts on a
-     * proxy that has not installed it yet, but trust tier enforcement only
-     * exists when it is present, so its absence is logged loudly.
+     * Starts the external interface, or explains why it did not.
+     *
+     * A failure to bind is logged and swallowed rather than aborting startup.
+     * The interface exists so a Discord bot can reach the network; the
+     * network working without its bot is a degraded state, while a proxy
+     * refusing to start because a port was taken is an outage.
+     */
+    private void startHttpInterface(AuthIdentityService identities, AuthLinkService links) {
+        if (!config.http.enabled) {
+            return;
+        }
+        try {
+            httpApi = new HttpApiServer(config.http, new ApiAuthenticator(config.http),
+                    identities, links, dataDirectory, logger);
+            httpApi.start();
+        } catch (Exception failure) {
+            httpApi = null;
+            logger.error("The HTTP interface could not start. Authentication is unaffected, but the "
+                    + "Discord bot cannot reach this proxy until it is fixed.", failure);
+        }
+    }
+
+    /**
+     * Wires trust tier enforcement, when a permission plugin is there to
+     * enforce it with.
+     *
+     * The plugin is looked up by name before anything that references the
+     * LuckPerms API is loaded. Calling LuckPermsProvider directly and
+     * catching the failure does not work: the class naming it fails to link
+     * on a proxy without LuckPerms, and the resulting NoClassDefFoundError
+     * is an Error rather than an Exception, so it escapes the catch, aborts
+     * ProxyInitializeEvent and leaves the proxy with no authentication
+     * listeners registered at all.
      */
     private void registerPermissionSync(IdentityService identities) {
         if (!config.permissions.enforceTrustTiers) {
@@ -151,17 +218,18 @@ public final class CodeverseAuth {
                     + "prevented from holding groups.");
             return;
         }
-        try {
-            LuckPerms luckPerms = LuckPermsProvider.get();
-            proxy.getEventManager().register(this,
-                    new net.codeverse.listener.PermissionSyncListener(
-                            new net.codeverse.integration.LuckPermsTierSync(luckPerms, config, logger),
-                            identities, config, logger));
-            logger.info("LuckPerms trust tier enforcement active.");
-        } catch (IllegalStateException notLoaded) {
+        if (proxy.getPluginManager().getPlugin(LUCKPERMS_PLUGIN_ID).isEmpty()) {
             logger.error("LuckPerms is not installed. Trust tier enforcement is INACTIVE, which means "
                     + "nothing is stripping groups from cracked accounts. Install LuckPerms.");
+            return;
         }
+        Optional<PermissionHooks> hooks = LuckPermsHooks.load(config, logger);
+        if (hooks.isEmpty()) {
+            return;
+        }
+        proxy.getEventManager().register(this,
+                new PermissionSyncListener(hooks.get(), identities, config, logger));
+        logger.info("LuckPerms trust tier enforcement active.");
     }
 
     @Subscribe
@@ -171,6 +239,14 @@ public final class CodeverseAuth {
 
     private void shutdownResources() {
         started = false;
+        if (api != null) {
+            CodeverseApiProvider.unregister(api);
+            api = null;
+        }
+        if (httpApi != null) {
+            httpApi.stop();
+            httpApi = null;
+        }
         if (executor != null) {
             executor.shutdown();
             try {
