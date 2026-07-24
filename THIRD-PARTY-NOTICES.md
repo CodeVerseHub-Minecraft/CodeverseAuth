@@ -11,6 +11,7 @@ coordinates listed.
 
 | Library | Version | License |
 |---|---|---|
+| CodeverseAPI (`com.github.CodeVerseHub-Minecraft.CodeverseAPI:api`) | 0.2.0 | MIT License |
 | BouncyCastle (`org.bouncycastle:bcprov-jdk18on`) | 1.85 | Bouncy Castle License (MIT style) |
 | HikariCP (`com.zaxxer:HikariCP`) | 7.1.0 | Apache License 2.0 |
 | Caffeine (`com.github.ben-manes.caffeine:caffeine`) | 3.2.4 | Apache License 2.0 |
@@ -24,6 +25,16 @@ coordinates listed.
 | Error Prone Annotations (`com.google.errorprone:error_prone_annotations`) | 2.49.0 | Apache License 2.0 |
 | Redis AuthX Core (`redis.clients.authentication:redis-authx-core`) | 0.1.1-beta2 | MIT License |
 | **MySQL Connector/J** (`com.mysql:mysql-connector-j`) | 9.7.0 | **GPL v2 with Universal FOSS Exception 1.0** |
+
+## A note on CodeverseAPI
+
+CodeverseAPI is bundled deliberately unrelocated, unlike every other library
+here. This plugin is the provider of those interfaces rather than a consumer
+of them: consumer plugins declare the same coordinate as `compileOnly` and
+resolve to this copy at runtime, which is what makes their
+`CodeverseApiProvider` and this one the same class holding the same
+registration. Relocating it would give every consumer a second set of
+interfaces that are not the ones registered here.
 
 ## A note on MySQL Connector/J
 
