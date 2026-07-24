@@ -66,6 +66,17 @@
     ],
     "recovery-codes-failed": "<red>Zwei Faktor ist aktiv, aber die Wiederherstellungscodes konnten nicht erstellt werden. Melde dich beim Team.</red>"
   },
+  "link": {
+    "issued": [
+      "<gray>Dein Verknüpfungscode lautet <white><code></white>.</gray>",
+      "<gray>Sende ihn innerhalb von <white><minutes></white> Minuten an den Discord Bot.</gray>",
+      "<gray>Wer diesen Code sieht, kann dein Konto verknüpfen, teile ihn also nicht im Chat.</gray>"
+    ],
+    "removed": "<green>Dein Discord Konto wurde getrennt.</green>",
+    "not-linked": "<gray>Mit dir ist kein Discord Konto verknuepft.</gray>",
+    "must-be-authenticated": "<red>Melde dich an, bevor du ein Discord Konto verknüpfst.</red>",
+    "players-only": "<red>Dieser Befehl kann nur von einem Spieler benutzt werden.</red>"
+  },
   "error": {
     "storage-unavailable": "<red>Der Anmeldedienst ist vorübergehend nicht verfügbar. Bitte versuche es gleich erneut.</red>",
     "no-server-available": "<red>Aktuell ist kein Server verfügbar. Bitte versuche es gleich erneut.</red>"

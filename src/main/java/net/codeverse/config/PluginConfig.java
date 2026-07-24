@@ -34,6 +34,7 @@ public final class PluginConfig {
     public Routing routing = new Routing();
     public Permissions permissions = new Permissions();
     public Language language = new Language();
+    public net.codeverse.http.HttpApiConfig http = new net.codeverse.http.HttpApiConfig();
 
     public static final class Storage {
         public String jdbcUrl = "jdbc:mysql://127.0.0.1:3306/network?useSSL=false&characterEncoding=utf8";
@@ -150,6 +151,13 @@ public final class PluginConfig {
             config.session.secret = Base64.getEncoder().withoutPadding().encodeToString(generated);
         }
 
+        // Generated here rather than at server start so the operator can read
+        // it out of config.json to configure the bot, and so enabling the
+        // interface never leaves it running with a blank credential.
+        if (config.http.enabled && (config.http.token == null || config.http.token.isBlank())) {
+            config.http.token = net.codeverse.http.ApiAuthenticator.generateToken();
+        }
+
         config.validate();
         Files.writeString(file, GSON.toJson(config), StandardCharsets.UTF_8);
         return config;
@@ -182,6 +190,7 @@ public final class PluginConfig {
         if (security.maximumFailedAttempts < 1) {
             throw new IllegalStateException("security.maximumFailedAttempts must be at least 1");
         }
+        http.validate();
     }
 
     public JsonObject toJsonTree() {

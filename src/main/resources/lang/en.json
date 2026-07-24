@@ -66,6 +66,17 @@
     ],
     "recovery-codes-failed": "<red>Two factor is active but recovery codes could not be generated. Contact staff.</red>"
   },
+  "link": {
+    "issued": [
+      "<gray>Your link code is <white><code></white>.</gray>",
+      "<gray>Send it to the Discord bot within <white><minutes></white> minutes.</gray>",
+      "<gray>Anyone who sees this code can link your account, so do not share it in chat.</gray>"
+    ],
+    "removed": "<green>Your Discord account has been unlinked.</green>",
+    "not-linked": "<gray>There is no Discord account linked to you.</gray>",
+    "must-be-authenticated": "<red>Sign in before linking a Discord account.</red>",
+    "players-only": "<red>That command can only be used by a player.</red>"
+  },
   "error": {
     "storage-unavailable": "<red>The login service is temporarily unavailable. Please try again shortly.</red>",
     "no-server-available": "<red>No server is available right now. Please try again shortly.</red>"
