@@ -1,8 +1,8 @@
 package net.codeverse.identity;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
+import net.codeverse.api.identity.TrustTier;
 import net.codeverse.cache.IdentityCache;
+import net.codeverse.cache.IdentityPayloadCodec;
 import net.codeverse.storage.AccountRepository;
 
 import java.sql.SQLException;
@@ -19,8 +19,6 @@ import java.util.UUID;
  */
 public final class IdentityService {
 
-    private static final Gson GSON = new Gson();
-
     private final AccountRepository accounts;
     private final IdentityCache cache;
 
@@ -31,9 +29,10 @@ public final class IdentityService {
 
     /**
      * Returns the stored identity for this connection, registering a new one
-     * when the account has never been seen. The tier is always taken from
-     * the live connection rather than from storage, so an account cannot
-     * retain a trusted tier it no longer qualifies for.
+     * when the account has never been seen. The tier is taken from the live
+     * connection, reconciled with storage by {@link #reconcileTier}, so an
+     * account can neither retain a verified tier it no longer qualifies for
+     * nor lose a linked tier that only storage can know about.
      */
     public Identity resolve(UUID minecraftId, String username, TrustTier tier) throws SQLException {
         Optional<AccountRepository.StoredAccount> existing = accounts.findByMinecraftId(minecraftId);
@@ -43,11 +42,11 @@ public final class IdentityService {
                     stored.internalId(),
                     stored.minecraftId(),
                     username,
-                    tier,
+                    reconcileTier(tier, stored.tier()),
                     stored.registeredAt(),
                     stored.lastLoginAt(),
                     stored.hasTotp());
-            cacheIdentity(identity);
+            cacheIdentity(identity, stored.discordId());
             return identity;
         }
 
@@ -60,8 +59,28 @@ public final class IdentityService {
                 0L,
                 false);
         accounts.createAccount(created);
-        cacheIdentity(created);
+        cacheIdentity(created, null);
         return created;
+    }
+
+    /**
+     * What the connection proves wins, with one exception that only storage
+     * can supply.
+     *
+     * PREMIUM and BEDROCK are properties of the live connection: Mojang's
+     * session servers verified the one, Floodgate verified the other, and
+     * taking either from a database row would mean a stale row grants a
+     * verification that did not happen. DISCORD_LINKED is the opposite: it
+     * cannot be observed on the wire at all, only in the row the redeemed
+     * link code wrote. Without this exception a linked player would be
+     * demoted back to CRACKED on every login and the promotion the whole
+     * linking flow exists to grant would last exactly one session.
+     */
+    static TrustTier reconcileTier(TrustTier connection, TrustTier stored) {
+        if (connection == TrustTier.CRACKED && stored == TrustTier.DISCORD_LINKED) {
+            return TrustTier.DISCORD_LINKED;
+        }
+        return connection;
     }
 
     public Optional<AccountRepository.StoredAccount> stored(UUID minecraftId) throws SQLException {
@@ -72,12 +91,15 @@ public final class IdentityService {
         cache.invalidateIdentity(minecraftId.toString());
     }
 
-    private void cacheIdentity(Identity identity) {
-        JsonObject payload = new JsonObject();
-        payload.addProperty("internalId", identity.internalId().toString());
-        payload.addProperty("username", identity.username());
-        payload.addProperty("tier", identity.tier().name());
-        payload.addProperty("registeredAt", identity.registeredAt());
-        cache.putIdentity(identity.minecraftId().toString(), GSON.toJson(payload));
+    private void cacheIdentity(Identity identity, String discordId) {
+        cache.putIdentity(identity.minecraftId().toString(), IdentityPayloadCodec.encode(
+                identity.internalId(),
+                identity.minecraftId(),
+                identity.username(),
+                identity.tier(),
+                identity.registeredAt(),
+                identity.lastLoginAt(),
+                identity.totpEnrolled(),
+                discordId));
     }
 }
