@@ -6,7 +6,7 @@ import net.luckperms.api.node.NodeType;
 import net.luckperms.api.node.types.InheritanceNode;
 import net.codeverse.config.PluginConfig;
 import net.codeverse.identity.Identity;
-import net.codeverse.identity.TrustTier;
+import net.codeverse.api.identity.TrustTier;
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
  * inherited group except the configured cracked group on the account's next
  * login. Config describes intent; the tier predicate is what actually holds.
  */
-public final class LuckPermsTierSync {
+public final class LuckPermsTierSync implements PermissionHooks {
 
     private final LuckPerms luckPerms;
     private final PluginConfig config;
@@ -37,6 +37,7 @@ public final class LuckPermsTierSync {
         this.logger = logger;
     }
 
+    @Override
     public CompletableFuture<Void> apply(Identity identity) {
         if (!config.permissions.enforceTrustTiers) {
             return CompletableFuture.completedFuture(null);

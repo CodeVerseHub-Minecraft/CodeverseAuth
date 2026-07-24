@@ -63,6 +63,18 @@ public final class IdentityCache implements AutoCloseable {
         return get("identity:" + minecraftId);
     }
 
+    /**
+     * Reads only the local layer, never Redis.
+     *
+     * Exists for the API's cached lookup contract, which promises callers an
+     * in memory read they can make from anywhere. A Redis read is a socket
+     * round trip, and a caller relying on this from a tick loop would pay it
+     * on every cache miss.
+     */
+    public Optional<String> getIdentityLocal(String minecraftId) {
+        return Optional.ofNullable(local.getIfPresent("identity:" + minecraftId));
+    }
+
     public void putIdentity(String minecraftId, String payload) {
         put("identity:" + minecraftId, payload, identityTtl);
     }

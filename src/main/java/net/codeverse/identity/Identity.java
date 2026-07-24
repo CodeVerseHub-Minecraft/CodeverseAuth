@@ -1,5 +1,7 @@
 package net.codeverse.identity;
 
+import net.codeverse.api.identity.TrustTier;
+
 import java.util.UUID;
 
 /**

@@ -4,17 +4,27 @@ plugins {
 }
 
 group = "net.codeverse"
-version = "0.1.0"
+version = "0.2.0"
 
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://jitpack.io")
 }
 
 dependencies {
     compileOnly("com.velocitypowered:velocity-api:4.0.0")
     annotationProcessor("com.velocitypowered:velocity-api:4.0.0")
     compileOnly("net.luckperms:api:5.5")
+
+    // The shared contract. This plugin is the provider, so it must ship the
+    // interfaces: CodeverseAPI is a plain library, not a plugin, and nothing
+    // else on the proxy supplies these classes at runtime. They are shaded
+    // unrelocated and exactly once; consumers declare the same coordinate as
+    // compileOnly and resolve to this copy through Velocity's cross plugin
+    // class loading, which is what makes their CodeverseApiProvider and ours
+    // the same class with the same registered instance.
+    implementation("com.github.CodeVerseHub-Minecraft.CodeverseAPI:api:0.2.0")
 
     implementation("org.bouncycastle:bcprov-jdk18on:1.85")
     implementation("com.zaxxer:HikariCP:7.1.0")

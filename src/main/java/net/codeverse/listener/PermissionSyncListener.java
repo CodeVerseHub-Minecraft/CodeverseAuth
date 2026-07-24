@@ -6,8 +6,8 @@ import com.velocitypowered.api.proxy.Player;
 import net.codeverse.config.PluginConfig;
 import net.codeverse.identity.Identity;
 import net.codeverse.identity.IdentityService;
-import net.codeverse.identity.TrustTier;
-import net.codeverse.integration.LuckPermsTierSync;
+import net.codeverse.api.identity.TrustTier;
+import net.codeverse.integration.PermissionHooks;
 import org.slf4j.Logger;
 
 import java.sql.SQLException;
@@ -23,12 +23,12 @@ import java.sql.SQLException;
  */
 public final class PermissionSyncListener {
 
-    private final LuckPermsTierSync sync;
+    private final PermissionHooks sync;
     private final IdentityService identities;
     private final PluginConfig config;
     private final Logger logger;
 
-    public PermissionSyncListener(LuckPermsTierSync sync,
+    public PermissionSyncListener(PermissionHooks sync,
                                   IdentityService identities,
                                   PluginConfig config,
                                   Logger logger) {

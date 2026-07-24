@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import net.codeverse.config.PluginConfig;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -90,12 +91,66 @@ public final class Database implements AutoCloseable {
 
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS %s (
+                      code          VARCHAR(32)  NOT NULL PRIMARY KEY,
+                      internal_id   BINARY(16)   NOT NULL,
+                      issued_at     BIGINT       NOT NULL,
+                      expires_at    BIGINT       NOT NULL,
+                      redeemed_at   BIGINT       NOT NULL DEFAULT 0,
+                      KEY idx_internal (internal_id),
+                      KEY idx_expires (expires_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    """.formatted(table("link_codes")));
+
+            // Added after the first release, so applied separately rather than
+            // as part of the accounts table definition. Existing installations
+            // upgrade in place; new ones end up identical either way.
+            addColumnIfMissing(connection, table("accounts"), "discord_id", "VARCHAR(32) NULL");
+            addIndexIfMissing(connection, table("accounts"), "idx_discord", "discord_id");
+
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS %s (
                       scope         VARCHAR(64)  NOT NULL PRIMARY KEY,
                       failures      INT          NOT NULL DEFAULT 0,
                       locked_until  BIGINT       NOT NULL DEFAULT 0,
                       updated_at    BIGINT       NOT NULL
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
                     """.formatted(table("login_throttle")));
+        }
+    }
+
+    /**
+     * Adds a column when it is not already present.
+     *
+     * MySQL has no portable "add column if not exists", and running a plain
+     * ALTER on every start would fail on the second start. Checking the
+     * metadata first keeps schema application idempotent, which is what lets
+     * this run unconditionally at boot.
+     */
+    private static void addColumnIfMissing(Connection connection, String table, String column, String definition)
+            throws SQLException {
+        try (ResultSet columns = connection.getMetaData().getColumns(
+                connection.getCatalog(), null, table, column)) {
+            if (columns.next()) {
+                return;
+            }
+        }
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
+        }
+    }
+
+    private static void addIndexIfMissing(Connection connection, String table, String indexName, String column)
+            throws SQLException {
+        try (ResultSet indexes = connection.getMetaData().getIndexInfo(
+                connection.getCatalog(), null, table, false, false)) {
+            while (indexes.next()) {
+                if (indexName.equalsIgnoreCase(indexes.getString("INDEX_NAME"))) {
+                    return;
+                }
+            }
+        }
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("CREATE INDEX " + indexName + " ON " + table + " (" + column + ")");
         }
     }
 

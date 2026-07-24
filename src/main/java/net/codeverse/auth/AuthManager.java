@@ -6,7 +6,7 @@ import net.codeverse.crypto.SessionTokenCodec;
 import net.codeverse.crypto.TotpService;
 import net.codeverse.identity.Identity;
 import net.codeverse.identity.IdentityService;
-import net.codeverse.identity.TrustTier;
+import net.codeverse.api.identity.TrustTier;
 import net.codeverse.storage.AccountRepository;
 import net.codeverse.storage.ThrottleRepository;
 

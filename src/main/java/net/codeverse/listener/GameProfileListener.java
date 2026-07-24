@@ -5,7 +5,7 @@ import com.velocitypowered.api.event.player.GameProfileRequestEvent;
 import com.velocitypowered.api.util.GameProfile;
 import net.codeverse.config.PluginConfig;
 import net.codeverse.identity.OfflineUuid;
-import net.codeverse.identity.TrustTier;
+import net.codeverse.api.identity.TrustTier;
 import org.slf4j.Logger;
 
 /**

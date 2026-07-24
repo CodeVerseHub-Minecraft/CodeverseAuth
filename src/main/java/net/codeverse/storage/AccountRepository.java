@@ -1,7 +1,7 @@
 package net.codeverse.storage;
 
 import net.codeverse.identity.Identity;
-import net.codeverse.identity.TrustTier;
+import net.codeverse.api.identity.TrustTier;
 
 import java.nio.ByteBuffer;
 import java.sql.Connection;
@@ -23,6 +23,10 @@ import java.util.UUID;
  */
 public final class AccountRepository {
 
+    private static final String SELECT_COLUMNS =
+            "SELECT minecraft_id, internal_id, username, tier, password_hash, totp_secret, "
+                    + "registered_at, last_login_at, discord_id FROM ";
+
     private final Database database;
 
     public AccountRepository(Database database) {
@@ -30,8 +34,7 @@ public final class AccountRepository {
     }
 
     public Optional<StoredAccount> findByMinecraftId(UUID minecraftId) throws SQLException {
-        String sql = "SELECT minecraft_id, internal_id, username, tier, password_hash, totp_secret, "
-                + "registered_at, last_login_at FROM " + database.table("accounts") + " WHERE minecraft_id = ?";
+        String sql = SELECT_COLUMNS + database.table("accounts") + " WHERE minecraft_id = ?";
         try (Connection connection = database.connection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setBytes(1, toBytes(minecraftId));
@@ -42,8 +45,7 @@ public final class AccountRepository {
     }
 
     public Optional<StoredAccount> findByUsername(String username) throws SQLException {
-        String sql = "SELECT minecraft_id, internal_id, username, tier, password_hash, totp_secret, "
-                + "registered_at, last_login_at FROM " + database.table("accounts") + " WHERE username_lower = ?";
+        String sql = SELECT_COLUMNS + database.table("accounts") + " WHERE username_lower = ?";
         try (Connection connection = database.connection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, username.toLowerCase(Locale.ROOT));
@@ -92,6 +94,104 @@ public final class AccountRepository {
             } finally {
                 connection.setAutoCommit(true);
             }
+        }
+    }
+
+    /** Any account belonging to an identity, most recently seen first. */
+    public Optional<StoredAccount> findByInternalId(UUID internalId) throws SQLException {
+        String sql = SELECT_COLUMNS + database.table("accounts")
+                + " WHERE internal_id = ? ORDER BY last_login_at DESC LIMIT 1";
+        try (Connection connection = database.connection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setBytes(1, toBytes(internalId));
+            try (ResultSet results = statement.executeQuery()) {
+                return results.next() ? Optional.of(read(results)) : Optional.empty();
+            }
+        }
+    }
+
+    public Optional<StoredAccount> findByDiscordId(String discordId) throws SQLException {
+        String sql = SELECT_COLUMNS + database.table("accounts")
+                + " WHERE discord_id = ? ORDER BY last_login_at DESC LIMIT 1";
+        try (Connection connection = database.connection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, discordId);
+            try (ResultSet results = statement.executeQuery()) {
+                return results.next() ? Optional.of(read(results)) : Optional.empty();
+            }
+        }
+    }
+
+    /** Every account belonging to one person. */
+    public List<StoredAccount> findAllByInternalId(UUID internalId) throws SQLException {
+        String sql = SELECT_COLUMNS + database.table("accounts")
+                + " WHERE internal_id = ? ORDER BY last_login_at DESC";
+        List<StoredAccount> found = new ArrayList<>();
+        try (Connection connection = database.connection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setBytes(1, toBytes(internalId));
+            try (ResultSet results = statement.executeQuery()) {
+                while (results.next()) {
+                    found.add(read(results));
+                }
+            }
+        }
+        return found;
+    }
+
+    /**
+     * Applies a Discord link to every account belonging to the identity.
+     *
+     * All of them, not just the one that generated the code. The link belongs
+     * to the person, and someone who linked from their Java account then
+     * connected from Bedrock would otherwise appear unlinked.
+     */
+    public int setDiscordId(UUID internalId, String discordId) throws SQLException {
+        String sql = "UPDATE " + database.table("accounts")
+                + " SET discord_id = ? WHERE internal_id = ?";
+        try (Connection connection = database.connection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            if (discordId == null) {
+                statement.setNull(1, java.sql.Types.VARCHAR);
+            } else {
+                statement.setString(1, discordId);
+            }
+            statement.setBytes(2, toBytes(internalId));
+            return statement.executeUpdate();
+        }
+    }
+
+    public int clearDiscordId(String discordId) throws SQLException {
+        String sql = "UPDATE " + database.table("accounts")
+                + " SET discord_id = NULL WHERE discord_id = ?";
+        try (Connection connection = database.connection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, discordId);
+            return statement.executeUpdate();
+        }
+    }
+
+    /**
+     * Records a tier for every account belonging to an identity.
+     *
+     * Used when a Discord link promotes someone out of CRACKED. Applying it to
+     * one account would leave the person trusted on that account and untrusted
+     * on the rest, which is exactly the split the internal id exists to avoid.
+     */
+    public int setTierForIdentity(UUID internalId, TrustTier tier, TrustTier onlyIfCurrently) throws SQLException {
+        StringBuilder sql = new StringBuilder("UPDATE " + database.table("accounts")
+                + " SET tier = ? WHERE internal_id = ?");
+        if (onlyIfCurrently != null) {
+            sql.append(" AND tier = ?");
+        }
+        try (Connection connection = database.connection();
+             PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+            statement.setString(1, tier.name());
+            statement.setBytes(2, toBytes(internalId));
+            if (onlyIfCurrently != null) {
+                statement.setString(3, onlyIfCurrently.name());
+            }
+            return statement.executeUpdate();
         }
     }
 
@@ -198,15 +298,21 @@ public final class AccountRepository {
     }
 
     private static StoredAccount read(ResultSet results) throws SQLException {
+        // An unrecognised tier degrades to the least trusted rather than
+        // throwing. A row written by a newer release must not take this server
+        // down, and treating the unknown as untrusted fails in the safe
+        // direction.
+        TrustTier tier = TrustTier.parse(results.getString("tier")).orElse(TrustTier.CRACKED);
         return new StoredAccount(
                 fromBytes(results.getBytes("minecraft_id")),
                 fromBytes(results.getBytes("internal_id")),
                 results.getString("username"),
-                TrustTier.valueOf(results.getString("tier")),
+                tier,
                 results.getString("password_hash"),
                 results.getString("totp_secret"),
                 results.getLong("registered_at"),
-                results.getLong("last_login_at"));
+                results.getLong("last_login_at"),
+                results.getString("discord_id"));
     }
 
     public static byte[] toBytes(UUID uuid) {
@@ -229,7 +335,8 @@ public final class AccountRepository {
             String passwordHash,
             String totpSecret,
             long registeredAt,
-            long lastLoginAt
+            long lastLoginAt,
+            String discordId
     ) {
         public boolean isRegistered() {
             return passwordHash != null && !passwordHash.isEmpty();
@@ -237,6 +344,10 @@ public final class AccountRepository {
 
         public boolean hasTotp() {
             return totpSecret != null && !totpSecret.isEmpty();
+        }
+
+        public boolean hasDiscordLink() {
+            return discordId != null && !discordId.isEmpty();
         }
     }
 }

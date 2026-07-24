@@ -16,7 +16,7 @@ import net.codeverse.auth.AuthState;
 import net.codeverse.config.PluginConfig;
 import net.codeverse.identity.Identity;
 import net.codeverse.identity.IdentityService;
-import net.codeverse.identity.TrustTier;
+import net.codeverse.api.identity.TrustTier;
 import net.codeverse.lang.LangManager;
 import org.slf4j.Logger;
 
