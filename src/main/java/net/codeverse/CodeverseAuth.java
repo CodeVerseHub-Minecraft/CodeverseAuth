@@ -59,7 +59,7 @@ import java.util.concurrent.TimeUnit;
 @Plugin(
         id = "codeverse-auth",
         name = "Codeverse Auth",
-        version = "0.2.1",
+        version = "0.2.2",
         description = "Identity, authentication and trust tiers for a cracked, Bedrock and Java network",
         authors = {"CodeVerseHub-Minecraft Subteam"}
 )
@@ -184,12 +184,9 @@ public final class CodeverseAuth {
                     // Repeats rather than running once: a proxy that stays up
                     // for a fortnight would otherwise never learn about a
                     // release published an hour after it booted. Runs on a
-                    // scheduler thread because it makes a network request. The
-                    // update folder sits beside the plugins directory, which is
-                    // where a replacement jar is picked up on the next boot.
-                    Path updateFolder = dataDirectory.getParent().resolve("update");
+                    // scheduler thread because it makes a network request.
                     proxy.getScheduler().buildTask(this, () -> UpdateCheck.run(
-                                    runningVersion, updateFolder, config.updates.autoApply,
+                                    runningVersion, dataDirectory, config.updates.autoApply,
                                     config.updates.checkIntervalHours, Runnable::run, logger))
                             .repeat(config.updates.checkIntervalHours, TimeUnit.HOURS)
                             .schedule();

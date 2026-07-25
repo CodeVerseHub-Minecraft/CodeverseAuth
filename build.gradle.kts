@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "net.codeverse"
-version = "0.2.1"
+version = "0.2.2"
 
 repositories {
     mavenCentral()
@@ -26,7 +26,7 @@ dependencies {
     // the same class with the same registered instance.
     implementation("com.github.CodeVerseHub-Minecraft.CodeverseAPI:api:0.2.0")
 
-    implementation("com.github.CodeVerseHub-Minecraft:CodeverseUpdater:v0.1.2")
+    implementation("com.github.CodeVerseHub-Minecraft:CodeverseUpdater:v0.1.4")
     implementation("org.bouncycastle:bcprov-jdk18on:1.85")
     implementation("com.zaxxer:HikariCP:7.1.0")
     implementation("io.lettuce:lettuce-core:7.6.0.RELEASE")

@@ -10,14 +10,15 @@ import java.time.Duration;
 import java.util.concurrent.Executor;
 
 /**
- * Wires the update library into this plugin, so startup stays short.
+ * Reports whether a newer release exists. It never stages one, and that is a
+ * property of the platform rather than a policy choice.
  *
- * Reports each outcome the library distinguishes and stages nothing unless the
- * operator opted into auto apply. Auto apply defaults off for this plugin in
- * particular, and that is a security decision rather than caution: this is the
- * plugin that guards every account, so auto staging it would turn a
- * compromised release token into code that runs on the next restart. An
- * operator who accepts that tradeoff can turn it on in config.
+ * Velocity has no update folder. Paper watches plugins/update and swaps a jar
+ * in on the next boot; the proxy has no equivalent, and a jar left in such a
+ * folder is ignored forever. Staging here would therefore log that an update
+ * was applied when nothing had been, which is worse than not offering it: an
+ * operator who believes the update is handled stops checking. So this reports
+ * the release and points at it, and replacing the jar stays a deliberate act.
  */
 public final class UpdateCheck {
 
@@ -25,19 +26,28 @@ public final class UpdateCheck {
     }
 
     public static void run(String currentVersion,
-                           Path updateFolder,
-                           boolean autoApply,
+                           Path dataDirectory,
+                           boolean autoApplyRequested,
                            int checkIntervalHours,
                            Executor executor,
                            Logger logger) {
+        if (autoApplyRequested) {
+            logger.warn("updates.autoApply is enabled, but Velocity has no update folder, so a staged "
+                    + "jar would never be applied. Updates will be reported only. Replace the jar in "
+                    + "plugins and restart to update.");
+        }
+
         Updater updater = new Updater(UpdaterConfig
                 .forRepository("CodeVerseHub-Minecraft", "CodeverseAuth")
                 .currentVersion(currentVersion)
-                .updateFolder(updateFolder)
+                // Never true here, whatever config asks for, because this
+                // platform cannot apply what would be staged.
+                .autoApply(false)
+                // Required by the builder but unused, since nothing is ever
+                // downloaded. Pointing it at the plugin's own directory keeps
+                // it from implying a staging location that does not work.
+                .updateFolder(dataDirectory)
                 .targetJarName("CodeverseAuth-" + currentVersion + ".jar")
-                .autoApply(autoApply)
-                // The same interval the caller schedules with, so the
-                // library's view and the actual cadence cannot disagree.
                 .checkInterval(Duration.ofHours(checkIntervalHours))
                 .build());
 
@@ -46,12 +56,13 @@ public final class UpdateCheck {
                 case UpdateResult.UpToDate ignored ->
                         logger.info("CodeverseAuth is up to date.");
                 case UpdateResult.UpdateAvailable available ->
-                        logger.info("CodeverseAuth {} is available (running {}). Auto apply is off, so "
-                                        + "nothing was staged. Update from the release page when ready.",
+                        logger.info("CodeverseAuth {} is available (running {}). Download it from "
+                                        + "https://github.com/CodeVerseHub-Minecraft/CodeverseAuth/releases "
+                                        + "and replace the jar in plugins, then restart.",
                                 available.release().tag(), currentVersion);
                 case UpdateResult.Staged staged ->
-                        logger.info("CodeverseAuth {} was downloaded, verified and staged. Restart to apply.",
-                                staged.release().tag());
+                        logger.info("CodeverseAuth {} was staged at {}.",
+                                staged.release().tag(), staged.stagedAt());
                 case UpdateResult.Failed failed ->
                         logger.warn("Update check did not complete: {}", failed.reason());
             }
