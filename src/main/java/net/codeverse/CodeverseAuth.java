@@ -30,6 +30,7 @@ import net.codeverse.apiimpl.AuthLinkService;
 import net.codeverse.apiimpl.CodeverseApiImpl;
 import net.codeverse.command.LinkCommands;
 import net.codeverse.integration.LuckPermsHooks;
+import net.codeverse.updatecheck.UpdateCheck;
 import net.codeverse.integration.PermissionHooks;
 import net.codeverse.http.ApiAuthenticator;
 import net.codeverse.http.HttpApiServer;
@@ -66,6 +67,8 @@ public final class CodeverseAuth {
 
     private static final List<String> BUNDLED_LOCALES = List.of("en", "de");
     private static final String LUCKPERMS_PLUGIN_ID = "luckperms";
+    // Kept in step with the @Plugin version above; the release process bumps both.
+    private static final String PLUGIN_VERSION = "0.2.0";
 
     private final ProxyServer proxy;
     private final Logger logger;
@@ -164,6 +167,18 @@ public final class CodeverseAuth {
             proxy.getScheduler().buildTask(this, () -> auth.purgeExpiredThrottles())
                     .repeat(15, TimeUnit.MINUTES)
                     .schedule();
+
+            if (config.updates.checkOnStartup) {
+                // Runs on a scheduler thread rather than inline, since it makes
+                // a network request. The update folder sits beside the plugins
+                // directory, which is where Velocity looks for a replacement
+                // jar on the next boot.
+                Path updateFolder = dataDirectory.getParent().resolve("update");
+                proxy.getScheduler().buildTask(this, () -> UpdateCheck.run(
+                                PLUGIN_VERSION, updateFolder, config.updates.autoApply,
+                                Runnable::run, logger))
+                        .schedule();
+            }
 
             started = true;
             logger.info("Authentication ready. Cracked prefix '{}', limbo '{}', locales {}",

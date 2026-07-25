@@ -34,6 +34,7 @@ public final class PluginConfig {
     public Routing routing = new Routing();
     public Permissions permissions = new Permissions();
     public Language language = new Language();
+    public Updates updates = new Updates();
     public net.codeverse.http.HttpApiConfig http = new net.codeverse.http.HttpApiConfig();
 
     public static final class Storage {
@@ -84,6 +85,16 @@ public final class PluginConfig {
         public String cookieKey = "codeverse:session";
         public long lifetimeSeconds = 604800;
         public boolean bindToAddress = false;
+    }
+
+    public static final class Updates {
+        // Whether to check GitHub releases for a newer CodeverseAuth on startup.
+        public boolean checkOnStartup = true;
+        // Whether a found update is downloaded, verified and staged for the next
+        // restart automatically. Off by default on purpose: this plugin guards
+        // every account, so auto staging it would let a compromised release
+        // token run code on the next restart. Leave off unless you accept that.
+        public boolean autoApply = false;
     }
 
     public static final class Totp {
