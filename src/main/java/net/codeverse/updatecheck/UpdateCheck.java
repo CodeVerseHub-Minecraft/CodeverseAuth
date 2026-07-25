@@ -27,6 +27,7 @@ public final class UpdateCheck {
     public static void run(String currentVersion,
                            Path updateFolder,
                            boolean autoApply,
+                           int checkIntervalHours,
                            Executor executor,
                            Logger logger) {
         Updater updater = new Updater(UpdaterConfig
@@ -35,7 +36,9 @@ public final class UpdateCheck {
                 .updateFolder(updateFolder)
                 .targetJarName("CodeverseAuth-" + currentVersion + ".jar")
                 .autoApply(autoApply)
-                .checkInterval(Duration.ofHours(6))
+                // The same interval the caller schedules with, so the
+                // library's view and the actual cadence cannot disagree.
+                .checkInterval(Duration.ofHours(checkIntervalHours))
                 .build());
 
         updater.checkAsync(executor, result -> {

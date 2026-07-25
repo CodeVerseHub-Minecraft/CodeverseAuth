@@ -67,8 +67,7 @@ public final class CodeverseAuth {
 
     private static final List<String> BUNDLED_LOCALES = List.of("en", "de");
     private static final String LUCKPERMS_PLUGIN_ID = "luckperms";
-    // Kept in step with the @Plugin version above; the release process bumps both.
-    private static final String PLUGIN_VERSION = "0.2.0";
+    private static final String PLUGIN_ID = "codeverse-auth";
 
     private final ProxyServer proxy;
     private final Logger logger;
@@ -169,15 +168,32 @@ public final class CodeverseAuth {
                     .schedule();
 
             if (config.updates.checkOnStartup) {
-                // Runs on a scheduler thread rather than inline, since it makes
-                // a network request. The update folder sits beside the plugins
-                // directory, which is where Velocity looks for a replacement
-                // jar on the next boot.
-                Path updateFolder = dataDirectory.getParent().resolve("update");
-                proxy.getScheduler().buildTask(this, () -> UpdateCheck.run(
-                                PLUGIN_VERSION, updateFolder, config.updates.autoApply,
-                                Runnable::run, logger))
-                        .schedule();
+                // The running version is read from the proxy rather than held
+                // in a constant here. A constant would be a third place the
+                // version lives, and the one that decides both what counts as
+                // newer and what the staged jar is named, so forgetting it
+                // would have this plugin stage the version it is already
+                // running.
+                String runningVersion = proxy.getPluginManager().getPlugin(PLUGIN_ID)
+                        .flatMap(container -> container.getDescription().getVersion())
+                        .orElse(null);
+                if (runningVersion == null) {
+                    logger.warn("The proxy did not report this plugin's version, so update checks "
+                            + "are disabled for this session.");
+                } else {
+                    // Repeats rather than running once: a proxy that stays up
+                    // for a fortnight would otherwise never learn about a
+                    // release published an hour after it booted. Runs on a
+                    // scheduler thread because it makes a network request. The
+                    // update folder sits beside the plugins directory, which is
+                    // where a replacement jar is picked up on the next boot.
+                    Path updateFolder = dataDirectory.getParent().resolve("update");
+                    proxy.getScheduler().buildTask(this, () -> UpdateCheck.run(
+                                    runningVersion, updateFolder, config.updates.autoApply,
+                                    config.updates.checkIntervalHours, Runnable::run, logger))
+                            .repeat(config.updates.checkIntervalHours, TimeUnit.HOURS)
+                            .schedule();
+                }
             }
 
             started = true;

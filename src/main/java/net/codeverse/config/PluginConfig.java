@@ -95,6 +95,12 @@ public final class PluginConfig {
         // every account, so auto staging it would let a compromised release
         // token run code on the next restart. Leave off unless you accept that.
         public boolean autoApply = false;
+        // How often the check repeats while the proxy is up. A proxy that runs
+        // for a fortnight would otherwise never see a release published an hour
+        // after it booted. Floored at one hour, because unauthenticated GitHub
+        // allows sixty requests an hour per address and several plugins on one
+        // host share that budget.
+        public int checkIntervalHours = 6;
     }
 
     public static final class Totp {
@@ -200,6 +206,10 @@ public final class PluginConfig {
         }
         if (security.maximumFailedAttempts < 1) {
             throw new IllegalStateException("security.maximumFailedAttempts must be at least 1");
+        }
+        if (updates.checkIntervalHours < 1) {
+            throw new IllegalStateException("updates.checkIntervalHours must be at least 1. A shorter "
+                    + "interval spends the shared GitHub rate limit on nothing a human could act on faster.");
         }
         http.validate();
     }
