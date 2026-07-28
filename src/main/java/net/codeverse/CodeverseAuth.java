@@ -59,7 +59,7 @@ import java.util.concurrent.TimeUnit;
 @Plugin(
         id = "codeverse-auth",
         name = "Codeverse Auth",
-        version = "0.2.2",
+        version = "0.2.3",
         description = "Identity, authentication and trust tiers for a cracked, Bedrock and Java network",
         authors = {"CodeVerseHub-Minecraft Subteam"}
 )

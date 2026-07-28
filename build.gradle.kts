@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "net.codeverse"
-version = "0.2.2"
+version = "0.2.3"
 
 repositories {
     mavenCentral()
@@ -24,7 +24,7 @@ dependencies {
     // compileOnly and resolve to this copy through Velocity's cross plugin
     // class loading, which is what makes their CodeverseApiProvider and ours
     // the same class with the same registered instance.
-    implementation("com.github.CodeVerseHub-Minecraft.CodeverseAPI:api:0.2.0")
+    implementation("com.github.CodeVerseHub-Minecraft.CodeverseAPI:api:0.3.0")
 
     implementation("com.github.CodeVerseHub-Minecraft:CodeverseUpdater:v0.1.4")
     implementation("org.bouncycastle:bcprov-jdk18on:1.85")
